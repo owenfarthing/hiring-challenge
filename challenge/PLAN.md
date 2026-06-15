@@ -140,3 +140,12 @@ See Architecture -> Data flow for details on suppression, see future enhancement
    - compare role values - are both roles valid? possibly implement role hierarchy/priority to prioritize higher roles
    - which row(s) match our other source data (e.g. listing names)
    - fall back to "pick first" strategy if we cannot differentiate, or consider returning multiple contacts per company
+
+## Implementation decisions (post-review, pre-build)
+These resolve open items surfaced while reconciling the plan with the clarifications. Weights are starting points; expect tuning during testing.
+
+1. Role scoring → priority-tiered, not binary. Fuzzy-match the registry role against the clarifications' priority order (AP / accounts-payable → owner/founder → CFO/finance → office-manager fallback). 0 points for no match, scaling up to the highest-priority tier; starting band ~10–15 points to allot by tier. Roles outside these tiers (e.g. "Registered Agent") match nothing → 0. This replaces the earlier binary role rule; total point budget will be reconciled when weights are tuned.
+2. Company-wide suppression is surfaced, not dropped. A suppressed company still appears as a row with empty contact and flagged for human review (preserves input/output row parity + audit trail). Contact-level suppression still blanks just the email/phone.
+3. Output format → CSV / tabular for the slice (no frontend to start). JSON view optional later.
+4. Weights + threshold (70) centralized in one config object so tuning happens in one place.
+5. Slice runs the full provided fixture (all ~18 companies) — it already covers every edge case (3-source agreement, name conflict, corroborated-anonymous phone, single weak enrichment, genuine not-found).
