@@ -11,13 +11,20 @@ Data flow:
 - Depending on CSV size (see clarifying questions), send or stream to backend for processing
 - Parse out company names and use to query enrichment sources
 - Evaluate enrichment results using confidence score logic
+- (From clarifications) Check against a mocked suppression list of contacts (keyed by individual's email or phone, or company's name)
+    - Drop companies entirely if their name is in the suppression list
+    - Treat contact email/phone as unpopulated from any source if it's in the supression list
 - Send results (and cache ID) to frontend for display
+
+Notes:
+A web app may be overkill for this use case. Will start with core logic and consider a basic frontend for screenshare / accessibility once that is in place. Move unimplemented items to future enhancements.
 
 *Recommended future enhancement: Store contact capture results in a database or cache to avoid repeated file uploads when searching for the same contacts.
 Components:
 - "Recent searches" navigable list, from cache/db
 Data flow:
 - Store result in cache/db before sending to client, send added row/key with response for trivial state refresh
+Separate endpoint for opt-out, writes to suppression list
 
 ## Sources & strategy
 Evaluation of sources:
@@ -35,6 +42,7 @@ Concerns:
 Strategy:
 - combine registry and listing sources when "name" field aligns; if it doesn't, prioritize registry if it exists and includes role; otherwise prioritize listing since it may contain contact info
 - if we can verify listing phone matches enrichment phone, combine; if we cannot verify either way, combine and indicate "needs human review"
+- output one row per company since clarifications allow this; agrees with our scoring strategy of using role as the driving property
 
 ## Quality
 Deduping:
@@ -50,20 +58,23 @@ Rules:
 
 Logic:
 Given the above rules for combining/handling sources, allot a certain number of possible confidence points to each property:
-- role, 49 (if we are not confident about the role, providing contact info is less valuable)
+- role, 44 (if we are not confident about the role, providing contact info is less valuable)
 - phone, 30 (slightly higher than email because it represents a link between registry, listing, and enrichment)
 - email, 20
+- 5 points for fuzzy vs exact matching between names in registry/listing
+- verifiable threshold is 70
 
 Role scores 0 when empty, 10 when it doesn't match any expected role, 49 when populated and matching
 
 Phone scores 0 when:
 - unpopulated in listing and enrichment
 - name in listing doesn't align with name in registry
-Phone scores 10 when:
+Phone scores 5 when:
 - unpopulated in listing but populated in enrichment
 - and name in listing aligns with name in registry
 Phone scores 20 when:
 - populated in listing but populated differently in enrichment
+- or populated in listing and unpopulated in enrichment
 - and name in listing aligns with name in registry
 Phone scores 30 when:
 - populated in listing AND enrichment
@@ -75,16 +86,27 @@ Email scores 0 when:
 Email scores 10 when:
 - populated in enrichment
 - and phone number is unpopulated in listing or enrichment
-Email scores 20 when:
+Email scores 22.5 when:
 - populated in enrichment
 - and phone number matches between listing and enrichment
 
 Show disclaimer in frontend to notify users that false positives are possible
 Always leave remaining 1% of confidence score (highest possible score is 99%)
 
+Summary:
+We are purposefully gating confidence scores by role. The reason is that confidence in contact info does not necessarily give us an outcome. We could be very confident about contact info for the wrong individual, in which case the contact info is irrelevant. We must be confident enough about the individual's role to be able to deliver on the ask. Presumably, users could find contact info for this individual through other means if they at least know name/role.
+
+Notes:
+Exact name match is unreliable; adjustment made to scoring to reflect fuzzy matching potential for false positives
+Name match may be overweighted; need to build and test first; assume adjustments to weights will be necessary during testing
+
 ## Privacy / compliance
 Do not send frontend any PII / personal data; only send the client the exact fields listed in requirements
 Best-effort validation for outgoing data to ensure each field output matches expectation
+
+Notes:
+Need to include source for each field
+See Architecture -> Data flow for details on suppression, see future enhancements for opt-out
 
 ## Clarifying questions
 
@@ -105,6 +127,7 @@ Best-effort validation for outgoing data to ensure each field output matches exp
    If input file size pushes 50MB, switch to streaming (more complex ingestion process with progress reporting)
    Also consider paginating result, especially if output pushes server-side memory limits; requires database or other storage to hold full result + server-side pagination filter support
 
+**This question is out of scope and probably should have been replaced with a domain-specific one**
 3. Should we expect to handle multiple rows per source per company?
    - Why it matters:
    Complicates confidence logic (how do we determine which of two results is more trustworthy/more valuable?)

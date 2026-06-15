@@ -1,0 +1,7 @@
+A few details on an AI-native project I am finishing up now (https://github.com/code-flex-systems/resolve):
+- It's a knowledge management tool for claim subrogation
+- I built it end-to-end on my own time with Claude/Codex (my regular job is also full-stack dev)
+- An ambiguity: the breadth of the application; it's built for compact insurance teams that want to use the product for the full subrogation pipeline; could be a tough sell for companies that compartmentalize
+- A tradeoff: it's currently living in Supabase + Vercel, which is great for demos but not so great for audit controls and scaleability
+- A mistake I made: I started with the custom checklist feature the client wanted; I should have taken a step back and made the claim entity itself the focal point; had to go back and do this later, which cost time
+- A review comment: I built a payments timeline feature for the client and showed it off to them in a demo; for about thirty minutes we went back and forth and finally they just said, we never actually need to see payments in this format; I had to realize that sometimes I get excited about building features as a dev that I have to let go of because the real users don't understand or care about them
